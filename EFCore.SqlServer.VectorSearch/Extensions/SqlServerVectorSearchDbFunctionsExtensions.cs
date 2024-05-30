@@ -15,7 +15,7 @@ public static class SqlServerVectorSearchDbFunctionsExtensions
     /// </param>
     /// <param name="vector1">The first vector.</param>
     /// <param name="vector2">The second vector.</param>
-    public static byte[] VectorDistance(
+    public static double VectorDistance(
         this DbFunctions _,
         [NotParameterized] string similarityMeasure,
         float[] vector1,
