@@ -13,7 +13,7 @@ builder.Services.AddDbContext<ProductContext>(options =>
   options.UseSqlServer("<connection string>", o => o.UseVectorSearch()));
 ```
 
-Once the plugin has been enable, add an ordinary `float[]` property to the .NET type being mapped with EF:
+Once the plugin has been enabled, add an ordinary `float[]` property to the .NET type being mapped with EF:
 
 ```c#
 public class Product
