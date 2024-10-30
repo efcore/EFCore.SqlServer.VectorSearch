@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]  
 > This plugin is in prerelease status, and the APIs described below are likely to change before the final release.
-> Usage of this plugin requires the vector support feature in Azure SQL Database, currently in EAP. [See this blog post](https://devblogs.microsoft.com/azure-sql/announcing-eap-native-vector-support-in-azure-sql-database/) for more details.
+> Vector Functions are in Public Preview. Learn the details about vectors in Azure SQL here: https://aka.ms/azure-sql-vector-public-preview
 
 This Entity Framework Core plugin provides integration between EF and Vector Support in Azure SQL Database, allowing LINQ to be used to perform vector similarity search, and seamless insertion/retrieval of vector data.
 
@@ -23,12 +23,12 @@ public class Product
 }
 ```
 
-Finally, configure the property to be mapped as a vector by applying `IsVector()`:
+Finally, configure the property to be mapped as a vector by letting EF Core know using the `HasColumnType` method. Use the `vector` type and specify the number of dimension that your vector will have:
 
 ```c#
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
-    modelBuilder.Entity<Product>().Property(p => p.Embedding).IsVector();
+    modelBuilder.Entity<Product>().Property(p => p.Embedding).HasColumnType("vector(3)");
 }
 ```
 
@@ -37,22 +37,13 @@ That's it - you can now perform similarity search in LINQ queries! For example, 
 ```c#
 var someVector = new[] { 1f, 2f, 3f };
 var products = await context.Products
-    .OrderBy(p => EF.Functions.VectorDistance("cosine", p.Embedding, vector))
+    .OrderBy(p => EF.Functions.VectorDistance("cosine", p.Embedding, someVector))
     .Take(5)
     .ToArrayAsync();
 ```
 
-To get the number of dimensions of a vector, use `EF.Functions.VectorDimensions()`:
+A full sample using EF Core and vectors is available here:
 
-```c#
-var dimensions = await context.Products
-    .Where(p => p.Id == 1)
-    .Select(p => EF.Functions.VectorDimensions(p.Embedding))
-    .SingleAsync();
-```
+https://github.com/Azure-Samples/azure-sql-db-vector-search/tree/main/EF-Core
 
-Finally, the `JsonArrayToVector()` and `VectorToJsonArray()` functions allow you to convert a `varchar` value containing
-a JSON array to a vector, and vice versa. These functions generally shouldn't be needed, as you can work with `float[]`
-directly, and the EF plugin will perform the conversions for you.
-
-Ideas? Issues? Let us know on the [github repo](https://github.com/efcore/EFCore.SqlServer.VectorSearch).
+Ideas? Issues? Let us know on the [issues page](https://github.com/efcore/EFCore.SqlServer.VectorSearch/issues).
