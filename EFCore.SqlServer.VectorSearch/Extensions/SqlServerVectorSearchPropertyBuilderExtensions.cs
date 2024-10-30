@@ -6,14 +6,11 @@ namespace Microsoft.EntityFrameworkCore;
 
 public static class SqlServerVectorSearchPropertyBuilderExtensions
 {
+    [Obsolete("Configure your property to use the 'vector' via HasColumnType()")]
     public static PropertyBuilder IsVector(this PropertyBuilder propertyBuilder)
-    {
-        propertyBuilder
-            .HasConversion<VectorValueConverter>()
-            .Metadata.SetValueComparer(typeof(VectorValueComparer));
-        return propertyBuilder;
-    }
+        => throw new NotSupportedException();
 
+    [Obsolete("Configure your property to use the 'vector' via HasColumnType()")]
     public static PropertyBuilder<T> IsVector<T>(this PropertyBuilder<T> propertyBuilder)
-        => (PropertyBuilder<T>)IsVector((PropertyBuilder)propertyBuilder);
+        => throw new NotSupportedException();
 }

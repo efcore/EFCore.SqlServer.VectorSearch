@@ -1,6 +1,8 @@
 using EFCore.SqlServer.VectorSearch.Query.Internal;
+using EFCore.SqlServer.VectorSearch.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection;
@@ -16,6 +18,7 @@ public static class SqlServerVectorSearchServiceCollectionExtensions
         this IServiceCollection serviceCollection)
     {
         new EntityFrameworkRelationalServicesBuilder(serviceCollection)
+            .TryAdd<IRelationalTypeMappingSourcePlugin, SqlServerVectorSearchTypeMappingSourcePlugin>()
             .TryAdd<IMethodCallTranslatorPlugin, SqlServerVectorSearchMethodCallTranslatorPlugin>()
             .TryAdd<IEvaluatableExpressionFilterPlugin, SqlServerVectorSearchEvaluatableExpressionFilterPlugin>();
 

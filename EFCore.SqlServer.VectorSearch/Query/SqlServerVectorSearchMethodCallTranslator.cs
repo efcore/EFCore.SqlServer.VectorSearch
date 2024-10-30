@@ -1,5 +1,6 @@
 using System.Reflection;
 using EFCore.SqlServer.VectorSearch.Storage.Internal;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
@@ -13,7 +14,7 @@ public class SqlServerVectorSearchMethodCallTranslator : IMethodCallTranslator
 {
     private readonly IRelationalTypeMappingSource _typeMappingSource;
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
-    private readonly RelationalTypeMapping _vectorTypeMapping;
+    // private readonly RelationalTypeMapping _vectorTypeMapping;
 
     public SqlServerVectorSearchMethodCallTranslator(
         IRelationalTypeMappingSource typeMappingSource,
@@ -21,9 +22,6 @@ public class SqlServerVectorSearchMethodCallTranslator : IMethodCallTranslator
     {
         _typeMappingSource = typeMappingSource;
         _sqlExpressionFactory = sqlExpressionFactory;
-
-        _vectorTypeMapping = (RelationalTypeMapping)_typeMappingSource.FindMapping(typeof(byte[]))!
-            .WithComposedConverter(new VectorValueConverter(), new VectorValueComparer());
     }
 
     public SqlExpression? Translate(
@@ -46,18 +44,22 @@ public class SqlServerVectorSearchMethodCallTranslator : IMethodCallTranslator
                         "The first argument to EF.Functions.VectorDistance must be a constant string");
                 }
 
-                // At least one of the two arguments must be a vector (i.e. a type mapping with a VectorValueConverter).
+                // At least one of the two arguments must be a vector (i.e. SqlServerVectorTypeMapping).
                 // Check this and extract the mapping, applying it to the other argument (e.g. in case it's a parameter).
-                var vectorMapping = arguments[2].TypeMapping is { Converter: VectorValueConverter } mapping1
-                    ? mapping1
-                    : arguments[3].TypeMapping is { Converter: VectorValueConverter } mapping2
-                        ? mapping2
-                        : throw new InvalidOperationException(
-                            "At least one of the arguments to EF.Functions.VectorDistance must be a vector");
+                var vectorMapping =
+                    arguments[2].TypeMapping as SqlServerVectorTypeMapping
+                    ?? (arguments[3].TypeMapping as SqlServerVectorTypeMapping
+                        ?? throw new InvalidOperationException(
+                            "At least one of the arguments to EF.Functions.VectorDistance must be a vector"));
 
-                var vector1 = _sqlExpressionFactory.ApplyTypeMapping(arguments[2], vectorMapping);
-                var vector2 = _sqlExpressionFactory.ApplyTypeMapping(arguments[3], vectorMapping);
-            
+                var vector1 = Wrap(_sqlExpressionFactory.ApplyTypeMapping(arguments[2], vectorMapping), vectorMapping);
+                var vector2 = Wrap(_sqlExpressionFactory.ApplyTypeMapping(arguments[3], vectorMapping), vectorMapping);
+
+                SqlExpression Wrap(SqlExpression expression, SqlServerVectorTypeMapping vectorMapping)
+                    => expression is SqlParameterExpression
+                        ? _sqlExpressionFactory.Convert(expression, typeof(float[]), vectorMapping)
+                        : expression; 
+                    
                 return _sqlExpressionFactory.Function(
                     "VECTOR_DISTANCE",
                     [
@@ -69,42 +71,6 @@ public class SqlServerVectorSearchMethodCallTranslator : IMethodCallTranslator
                     [true, true, true],
                     typeof(double),
                     _typeMappingSource.FindMapping(typeof(double)));
-
-            case nameof(SqlServerVectorSearchDbFunctionsExtensions.VectorDimensions):
-                return _sqlExpressionFactory.Function(
-                    "VECTOR_DIMENSIONS",
-                    [arguments[1]],
-                    nullable: true,
-                    [true],
-                    typeof(int),
-                    _typeMappingSource.FindMapping(typeof(int)));
-
-            case nameof(SqlServerVectorSearchDbFunctionsExtensions.JsonArrayToVector):
-                return _sqlExpressionFactory.Function(
-                    "JSON_ARRAY_TO_VECTOR",
-                    [arguments[1]],
-                    nullable: true,
-                    [true],
-                    typeof(float[]),
-                    _vectorTypeMapping);
-
-            case nameof(SqlServerVectorSearchDbFunctionsExtensions.VectorToJsonArray):
-                return _sqlExpressionFactory.Function(
-                    "VECTOR_TO_JSON_ARRAY",
-                    [arguments[1]],
-                    nullable: true,
-                    [true],
-                    typeof(string),
-                    _typeMappingSource.FindMapping(typeof(string)));
-
-            case nameof(SqlServerVectorSearchDbFunctionsExtensions.IsVector):
-                return _sqlExpressionFactory.Function(
-                    "ISVECTOR",
-                    [arguments[1]],
-                    nullable: true,
-                    [true],
-                    typeof(bool),
-                    _typeMappingSource.FindMapping(typeof(bool)));
 
             default:
                 return null;
