@@ -23,12 +23,12 @@ public class Product
 }
 ```
 
-Finally, configure the property to be mapped as a vector by applying `IsVector()`:
+Finally, configure the property to be mapped as a vector by letting EF Core know using the `HasColumnType` method. Use the `vector` type and specify the number of dimension that your vector will have:
 
 ```c#
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
-    modelBuilder.Entity<Product>().Property(p => p.Embedding).IsVector();
+    modelBuilder.Entity<Product>().Property(p => p.Embedding).HasColumnType("vector(3)");
 }
 ```
 
@@ -41,18 +41,5 @@ var products = await context.Products
     .Take(5)
     .ToArrayAsync();
 ```
-
-To get the number of dimensions of a vector, use `EF.Functions.VectorDimensions()`:
-
-```c#
-var dimensions = await context.Products
-    .Where(p => p.Id == 1)
-    .Select(p => EF.Functions.VectorDimensions(p.Embedding))
-    .SingleAsync();
-```
-
-Finally, the `JsonArrayToVector()` and `VectorToJsonArray()` functions allow you to convert a `varchar` value containing
-a JSON array to a vector, and vice versa. These functions generally shouldn't be needed, as you can work with `float[]`
-directly, and the EF plugin will perform the conversions for you.
 
 Ideas? Issues? Let us know on the [github repo](https://github.com/efcore/EFCore.SqlServer.VectorSearch).
