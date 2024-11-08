@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]  
 > This plugin is in prerelease status, and the APIs described below are likely to change before the final release.
-> Usage of this plugin requires the vector support feature in Azure SQL Database, currently in EAP. [See this blog post](https://devblogs.microsoft.com/azure-sql/announcing-eap-native-vector-support-in-azure-sql-database/) for more details.
+> Vector Functions are in Public Preview. Learn the details about vectors in Azure SQL here: https://aka.ms/azure-sql-vector-public-preview
 
 This Entity Framework Core plugin provides integration between EF and Vector Support in Azure SQL Database, allowing LINQ to be used to perform vector similarity search, and seamless insertion/retrieval of vector data.
 
