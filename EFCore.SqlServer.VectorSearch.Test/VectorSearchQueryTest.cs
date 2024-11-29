@@ -109,7 +109,7 @@ WHERE [p].[Id] = 1
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public int Id { get; set; }
 
-        [Column(TypeName = "vector(3)")]
+        [Vector(3)]
         public float[] Embedding { get; set; }
     }
 
