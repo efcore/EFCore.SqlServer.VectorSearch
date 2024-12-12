@@ -87,20 +87,20 @@ WHERE [p].[Id] = 1
         protected override ITestStoreFactory TestStoreFactory
             => SqlServerTestStoreFactory.Instance;
 
-        protected override void Seed(VectorSearchContext context)
-            => VectorSearchContext.Seed(context);
+        protected override async Task SeedAsync(VectorSearchContext context)
+            => await VectorSearchContext.SeedAsync(context);
     }
 
     public class VectorSearchContext(DbContextOptions<VectorSearchContext> options) : PoolableDbContext(options)
     {
         public DbSet<Product> Products { get; set; }
 
-        public static void Seed(VectorSearchContext context)
+        public async static Task SeedAsync(VectorSearchContext context)
         {
             context.Products.AddRange(
                 new Product { Id = 1, Embedding = [1, 2, 3] },
                 new Product { Id = 2, Embedding = [10, 20, 30] });
-            context.SaveChanges();
+            await context.SaveChangesAsync();
         }
     }
 

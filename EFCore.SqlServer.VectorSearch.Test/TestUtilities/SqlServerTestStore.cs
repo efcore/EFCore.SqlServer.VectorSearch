@@ -3,8 +3,10 @@
 
 using System.Data;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 #pragma warning disable IDE0022 // Use block body for methods
 // ReSharper disable once CheckNamespace
@@ -22,8 +24,8 @@ public class SqlServerTestStore : RelationalTestStore
     public static SqlServerTestStore GetOrCreate(string name)
         => new(name);
 
-    public static SqlServerTestStore GetOrCreateInitialized(string name)
-        => new SqlServerTestStore(name).InitializeSqlServer(null, (Func<DbContext>?)null, null);
+    public static async Task<SqlServerTestStore> GetOrCreateInitializedAsync(string name)
+        => await new SqlServerTestStore(name).InitializeSqlServerAsync(null, (Func<DbContext>?)null, null);
 
     public static SqlServerTestStore GetOrCreateWithInitScript(string name, string initScript)
         => new(name, initScript: initScript);
@@ -33,32 +35,32 @@ public class SqlServerTestStore : RelationalTestStore
         string scriptPath,
         bool? multipleActiveResultSets = null,
         bool shared = true)
-        => new(name, scriptPath: scriptPath, shared: shared);
+        => new(name, scriptPath: scriptPath, multipleActiveResultSets: multipleActiveResultSets, shared: shared);
 
     public static SqlServerTestStore Create(string name, bool useFileName = false)
         => new(name, useFileName, shared: false);
 
-    public static SqlServerTestStore CreateInitialized(string name, bool useFileName = false)
-        => new SqlServerTestStore(name, useFileName, shared: false)
-            .InitializeSqlServer(null, (Func<DbContext>?)null, null);
+    public static async Task<SqlServerTestStore> CreateInitializedAsync(
+        string name,
+        bool useFileName = false,
+        bool? multipleActiveResultSets = null)
+        => await new SqlServerTestStore(name, useFileName, shared: false, multipleActiveResultSets: multipleActiveResultSets)
+            .InitializeSqlServerAsync(null, (Func<DbContext>?)null, null);
 
     private readonly string? _fileName;
     private readonly string? _initScript;
     private readonly string? _scriptPath;
 
-    private SqlServerTestStore(
+    protected SqlServerTestStore(
         string name,
         bool useFileName = false,
         bool? multipleActiveResultSets = null,
         string? initScript = null,
         string? scriptPath = null,
         bool shared = true)
-        : base(name, shared)
+        : base(name, shared, CreateConnection(name, useFileName, multipleActiveResultSets))
     {
-        if (useFileName)
-        {
-            _fileName = Path.Combine(CurrentDirectory, name + ".mdf");
-        }
+        _fileName = GenerateFileName(useFileName, name);
 
         if (initScript != null)
         {
@@ -67,97 +69,103 @@ public class SqlServerTestStore : RelationalTestStore
 
         if (scriptPath != null)
         {
-            _scriptPath = Path.Combine(Path.GetDirectoryName(typeof(SqlServerTestStore).Assembly.Location), scriptPath);
+            _scriptPath = Path.Combine(Path.GetDirectoryName(typeof(SqlServerTestStore).Assembly.Location)!, scriptPath);
         }
-
-        ConnectionString = CreateConnectionString(Name, _fileName, multipleActiveResultSets);
-        Connection = new SqlConnection(ConnectionString);
     }
 
-    public SqlServerTestStore InitializeSqlServer(
+    public async Task<SqlServerTestStore> InitializeSqlServerAsync(
         IServiceProvider? serviceProvider,
         Func<DbContext>? createContext,
-        Action<DbContext>? seed)
-        => (SqlServerTestStore)Initialize(serviceProvider, createContext, seed);
+        Func<DbContext, Task>? seed)
+        => (SqlServerTestStore)await InitializeAsync(serviceProvider, createContext, seed);
 
-    public SqlServerTestStore InitializeSqlServer(
+    public async Task<SqlServerTestStore> InitializeSqlServerAsync(
         IServiceProvider serviceProvider,
         Func<SqlServerTestStore, DbContext> createContext,
-        Action<DbContext> seed)
-        => InitializeSqlServer(serviceProvider, () => createContext(this), seed);
+        Func<DbContext, Task> seed)
+        => await InitializeSqlServerAsync(serviceProvider, () => createContext(this), seed);
 
-    protected override void Initialize(Func<DbContext> createContext, Action<DbContext>? seed, Action<DbContext>? clean)
+    protected override async Task InitializeAsync(Func<DbContext> createContext, Func<DbContext, Task>? seed, Func<DbContext, Task>? clean)
     {
-        if (CreateDatabase(clean))
+        if (await CreateDatabaseAsync(clean))
         {
             if (_scriptPath != null)
             {
-                ExecuteScript(File.ReadAllText(_scriptPath));
+                ExecuteScript(await File.ReadAllTextAsync(_scriptPath));
             }
             else
             {
                 using var context = createContext();
-                context.Database.EnsureCreatedResiliently();
+                await context.Database.EnsureCreatedResilientlyAsync();
 
                 if (_initScript != null)
                 {
                     ExecuteScript(_initScript);
                 }
 
-                seed?.Invoke(context);
+                if (seed != null)
+                {
+                    await seed(context);
+                }
             }
         }
     }
-
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
         => builder.UseSqlServer(Connection);
-        // => builder.UseSqlServer(Connection, b => b.ApplyConfiguration());
 
-    private bool CreateDatabase(Action<DbContext>? clean)
+    //public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
+    //    => (UseConnectionString
+    //            ? builder.UseSqlServer(ConnectionString, b => b.ApplyConfiguration())
+    //            : builder.UseSqlServer(Connection, b => b.ApplyConfiguration()))
+    //        .ConfigureWarnings(b => b.Ignore(SqlServerEventId.SavepointsDisabledBecauseOfMARS));
+
+    private async Task<bool> CreateDatabaseAsync(Func<DbContext, Task>? clean)
     {
-        using (var master = new SqlConnection(CreateConnectionString("master", fileName: null, multipleActiveResultSets: false)))
+        await using var master = new SqlConnection(CreateConnectionString("master", fileName: null, multipleActiveResultSets: false));
+
+        if (ExecuteScalar<int>(master, $"SELECT COUNT(*) FROM sys.databases WHERE name = N'{Name}'") > 0)
         {
-            if (ExecuteScalar<int>(master, $"SELECT COUNT(*) FROM sys.databases WHERE name = N'{Name}'") > 0)
+            // Only reseed scripted databases during CI runs
+            if (_scriptPath != null && !TestEnvironment.IsCI)
             {
-                // Only reseed scripted databases during CI runs
-                if (_scriptPath != null && !TestEnvironment.IsCI)
-                {
-                    return false;
-                }
-
-                if (_fileName == null)
-                {
-                    using var context = new DbContext(
-                        AddProviderOptions(
-                                new DbContextOptionsBuilder()
-                                    .EnableServiceProviderCaching(false))
-                            .Options);
-                    Clean(context);
-                    clean?.Invoke(context);
-                    return true;
-                }
-
-                // Delete the database to ensure it's recreated with the correct file path
-                DeleteDatabase();
+                return false;
             }
 
-            ExecuteNonQuery(master, GetCreateDatabaseStatement(Name, _fileName));
-            WaitForExists((SqlConnection)Connection);
+            if (_fileName == null)
+            {
+                await using var context = new DbContext(
+                    AddProviderOptions(new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+                await CleanAsync(context);
+
+                if (clean != null)
+                {
+                    await clean(context);
+                }
+
+                return true;
+            }
+
+            // Delete the database to ensure it's recreated with the correct file path
+            await DeleteDatabaseAsync();
         }
+
+        await ExecuteNonQueryAsync(master, GetCreateDatabaseStatement(Name, _fileName));
+        await WaitForExistsAsync((SqlConnection)Connection);
 
         return true;
     }
 
-    public override void Clean(DbContext context)
-        => context.Database.EnsureClean();
+    public override Task CleanAsync(DbContext context)
+    {
+        context.Database.EnsureClean();
+        return Task.CompletedTask;
+    }
 
     public void ExecuteScript(string script)
         => Execute(
             Connection, command =>
             {
-                foreach (var batch in
-                         new Regex("^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
-                             .Split(script).Where(b => !string.IsNullOrEmpty(b)))
+                foreach (var batch in RelationalDatabaseCleaner.SplitBatches(script))
                 {
                     command.CommandText = batch;
                     command.ExecuteNonQuery();
@@ -166,10 +174,10 @@ public class SqlServerTestStore : RelationalTestStore
                 return 0;
             }, "");
 
-    private static void WaitForExists(SqlConnection connection)
-        => new TestSqlServerRetryingExecutionStrategy().Execute(connection, WaitForExistsImplementation);
+    private static Task WaitForExistsAsync(SqlConnection connection)
+        => new TestSqlServerRetryingExecutionStrategy().ExecuteAsync(connection, WaitForExistsImplementation);
 
-    private static void WaitForExistsImplementation(SqlConnection connection)
+    private static async Task WaitForExistsImplementation(SqlConnection connection)
     {
         var retryCount = 0;
         while (true)
@@ -178,13 +186,13 @@ public class SqlServerTestStore : RelationalTestStore
             {
                 if (connection.State != ConnectionState.Closed)
                 {
-                    connection.Close();
+                    await connection.CloseAsync();
                 }
 
                 SqlConnection.ClearPool(connection);
 
-                connection.Open();
-                connection.Close();
+                await connection.OpenAsync();
+                await connection.CloseAsync();
                 return;
             }
             catch (SqlException e)
@@ -195,7 +203,7 @@ public class SqlServerTestStore : RelationalTestStore
                     throw;
                 }
 
-                Thread.Sleep(100);
+                await Task.Delay(100);
             }
         }
     }
@@ -226,16 +234,19 @@ public class SqlServerTestStore : RelationalTestStore
         return result;
     }
 
-    public void DeleteDatabase()
+    public async Task DeleteDatabaseAsync()
     {
-        using var master = new SqlConnection(CreateConnectionString("master"));
-        ExecuteNonQuery(
+        await using var master = new SqlConnection(CreateConnectionString("master"));
+
+        await ExecuteNonQueryAsync(
             master, string.Format(
-                @"IF EXISTS (SELECT * FROM sys.databases WHERE name = N'{0}')
-                                          BEGIN
-                                              ALTER DATABASE [{0}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                                              DROP DATABASE [{0}];
-                                          END", Name));
+                """
+IF EXISTS (SELECT * FROM sys.databases WHERE name = N'{0}')
+BEGIN
+    ALTER DATABASE [{0}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE [{0}];
+END
+""", Name));
 
         SqlConnection.ClearAllPools();
     }
@@ -433,14 +444,14 @@ public class SqlServerTestStore : RelationalTestStore
         return command;
     }
 
-    public override void Dispose()
+    public override async Task DisposeAsync()
     {
-        base.Dispose();
+        await base.DisposeAsync();
 
         if (_fileName != null // Clean up the database using a local file, as it might get deleted later
             || (TestEnvironment.IsSqlAzure && !Shared))
         {
-            DeleteDatabase();
+            await DeleteDatabaseAsync();
         }
     }
 
@@ -454,7 +465,8 @@ public class SqlServerTestStore : RelationalTestStore
     {
         var builder = new SqlConnectionStringBuilder(TestEnvironment.DefaultConnection)
         {
-            MultipleActiveResultSets = multipleActiveResultSets ?? Random.Shared.Next(0, 2) == 1, InitialCatalog = name
+            MultipleActiveResultSets = multipleActiveResultSets ?? Random.Shared.Next(0, 2) == 1,
+            InitialCatalog = name
         };
         if (fileName != null)
         {
