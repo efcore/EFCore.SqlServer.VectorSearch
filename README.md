@@ -44,6 +44,6 @@ var products = await context.Products
 
 A full sample using EF Core and vectors is available here:
 
-[https://github.com/Azure-Samples/azure-sql-db-vector-search/tree/main/EF-Core](https://github.com/Azure-Samples/azure-sql-db-vector-search/tree/main/DotNet/EF-Core)
+[Azure SQL DB Vector Samples - EF-Core Sample](https://github.com/Azure-Samples/azure-sql-db-vector-search/tree/main/DotNet/EF-Core)
 
 Ideas? Issues? Let us know on the [issues page](https://github.com/efcore/EFCore.SqlServer.VectorSearch/issues).
