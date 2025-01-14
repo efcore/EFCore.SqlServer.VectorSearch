@@ -19,8 +19,7 @@ public static class TestEnvironment
         .Build()
         .GetSection("Test:SqlServer");
 
-    public static string DefaultConnection { get; } = Config["DefaultConnection"]
-        ?? throw new Exception("A connection to a SQL Azure instance with vector search support must be configured.");
+    public static string DefaultConnection { get; } = "Server=tcp:shaysqltestserver.database.windows.net,1433;Initial Catalog=shaytest;Persist Security Info=False;User ID=roji;Password=Abcd5678;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False";
 
     private static readonly string _dataSource = new SqlConnectionStringBuilder(DefaultConnection).DataSource;
 
