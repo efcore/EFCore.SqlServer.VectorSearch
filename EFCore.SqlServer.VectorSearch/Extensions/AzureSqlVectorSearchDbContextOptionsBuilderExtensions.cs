@@ -5,15 +5,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 namespace Microsoft.EntityFrameworkCore;
 
 /// <summary>
-///     Extension method for enabling SQL Server vector search via <see cref="SqlServerDbContextOptionsBuilder" />.
+///     Extension method for enabling Azure SQL vector search via <see cref="AzureSqlDbContextOptionsBuilder" />.
 /// </summary>
-public static class SqlServerVectorSearchDbContextOptionsBuilderExtensions
+public static class AzureSqlVectorSearchDbContextOptionsBuilderExtensions
 {
     /// <summary>
-    ///     Adds SQL Server vector search functionality to Entity Framework Core.
+    ///     Adds Azure SQL vector search functionality to Entity Framework Core.
     /// </summary>
     /// <returns> The options builder so that further configuration can be chained. </returns>
-    public static SqlServerDbContextOptionsBuilder UseVectorSearch(this SqlServerDbContextOptionsBuilder optionsBuilder)
+    public static AzureSqlDbContextOptionsBuilder UseVectorSearch(this AzureSqlDbContextOptionsBuilder optionsBuilder)
     {
         var coreOptionsBuilder = ((IRelationalDbContextOptionsBuilderInfrastructure)optionsBuilder).OptionsBuilder;
 

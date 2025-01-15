@@ -6,7 +6,7 @@
 
 This Entity Framework Core plugin provides integration between EF and Vector Support in Azure SQL Database, allowing LINQ to be used to perform vector similarity search, and seamless insertion/retrieval of vector data.
 
-To use the plugin, reference the [EFCore.SqlServer.VectorSearch](https://www.nuget.org/packages/EFCore.SqlServer.VectorSearch) nuget package, and enable the plugin by adding `UseVectorSearch()` to your `UseSqlServer()` config as follows:
+To use the plugin, reference the [EFCore.SqlServer.VectorSearch](https://www.nuget.org/packages/EFCore.SqlServer.VectorSearch) nuget package, and enable the plugin by adding `UseVectorSearch()` to your `UseSqlServer()` or `UseAzureSql()` config as follows:
 
 ```c#
 builder.Services.AddDbContext<ProductContext>(options =>
