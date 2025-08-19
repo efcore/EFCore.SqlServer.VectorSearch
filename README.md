@@ -1,9 +1,11 @@
 # EFCore.SqlServer.VectorSearch
 
-> [!IMPORTANT]  
-> This plugin is in prerelease status, and the APIs described below are likely to change before the final release.
+> [!IMPORTANT]
+> Starting EF 10, the SQL Server provider contains full, built-in support for vector search. This plugin is no longer needed for EF 10 and above, and will be deprecated.
+>
+> For earlier versions of EF, note that this plugin is in prerelease status and not officially supported.
 
-This Entity Framework Core plugin provides integration between EF and [Vector Support in Azure SQL Database and SQL Server 2025](https://devblogs.microsoft.com/azure-sql/announcing-general-availability-of-native-vector-type-functions-in-azure-sql/), allowing LINQ to be used to perform vector similarity search, and seamless insertion/retrieval of vector data.
+This Entity Framework Core plugin provides integration between older versions of EF and [Vector Support in Azure SQL Database and SQL Server 2025](https://devblogs.microsoft.com/azure-sql/announcing-general-availability-of-native-vector-type-functions-in-azure-sql/), allowing LINQ to be used to perform vector similarity search, and seamless insertion/retrieval of vector data.
 
 To use the plugin, reference the [EFCore.SqlServer.VectorSearch](https://www.nuget.org/packages/EFCore.SqlServer.VectorSearch) nuget package, and enable the plugin by adding `UseVectorSearch()` to your `UseSqlServer()` or `UseAzureSql()` config as follows:
 
@@ -42,6 +44,9 @@ var products = await context.Products
 ```
 
 A full sample using EF Core and vectors is available here:
+
+> [!NOTE]
+> The [`VECTOR_SEARCH()`](/sql/t-sql/functions/vector-search-transact-sql) function (in preview) for approximate search with DiskANN is not supported.
 
 [Azure SQL DB Vector Samples - EF-Core Sample](https://github.com/Azure-Samples/azure-sql-db-vector-search/tree/main/DotNet/EF-Core)
 
