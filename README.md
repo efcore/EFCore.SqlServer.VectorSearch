@@ -1,9 +1,8 @@
 # EFCore.SqlServer.VectorSearch
 
 > [!IMPORTANT]
-> Starting EF 10, the SQL Server provider contains full, built-in support for vector search. This plugin is no longer needed for EF 10 and above, and will be deprecated.
->
-> For earlier versions of EF, note that this plugin is in prerelease status and not officially supported.
+> Starting with EF 10, the SQL Server provider contains full, built-in support for vector search. This plugin is no longer needed for EF 10 and above.
+> Only use this plugin with EF 8 and 9.
 
 This Entity Framework Core plugin provides integration between older versions of EF and [Vector Support in Azure SQL Database and SQL Server 2025](https://devblogs.microsoft.com/azure-sql/announcing-general-availability-of-native-vector-type-functions-in-azure-sql/), allowing LINQ to be used to perform vector similarity search, and seamless insertion/retrieval of vector data.
 
