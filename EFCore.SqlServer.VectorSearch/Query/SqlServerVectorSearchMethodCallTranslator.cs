@@ -48,9 +48,9 @@ public class SqlServerVectorSearchMethodCallTranslator : IMethodCallTranslator
                 // Check this and extract the mapping, applying it to the other argument (e.g. in case it's a parameter).
                 var vectorMapping =
                     arguments[2].TypeMapping as SqlServerVectorTypeMapping
-                    ?? (arguments[3].TypeMapping as SqlServerVectorTypeMapping
-                        ?? throw new InvalidOperationException(
-                            "At least one of the arguments to EF.Functions.VectorDistance must be a vector"));
+                    ?? arguments[3].TypeMapping as SqlServerVectorTypeMapping
+                    ?? throw new InvalidOperationException(
+                        "At least one of the arguments to EF.Functions.VectorDistance must be a vector");
 
                 var vector1 = Wrap(_sqlExpressionFactory.ApplyTypeMapping(arguments[2], vectorMapping), vectorMapping);
                 var vector2 = Wrap(_sqlExpressionFactory.ApplyTypeMapping(arguments[3], vectorMapping), vectorMapping);
@@ -58,8 +58,8 @@ public class SqlServerVectorSearchMethodCallTranslator : IMethodCallTranslator
                 SqlExpression Wrap(SqlExpression expression, SqlServerVectorTypeMapping vectorMapping)
                     => expression is SqlParameterExpression
                         ? _sqlExpressionFactory.Convert(expression, typeof(float[]), vectorMapping)
-                        : expression; 
-                    
+                        : expression;
+
                 return _sqlExpressionFactory.Function(
                     "VECTOR_DISTANCE",
                     [
